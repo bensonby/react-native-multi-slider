@@ -60,7 +60,8 @@ export default class MultiSlider extends React.Component {
     );
 
     this.state = {
-      pressedOne: true,
+      onePressed: true,
+      twoPressed: false,
       valueOne: this.props.values[0],
       valueTwo: this.props.values[1],
       pastOne: initialValues[0],
@@ -156,6 +157,10 @@ export default class MultiSlider extends React.Component {
         : this.props.minMarkerOverlapDistance > 0
         ? this.props.minMarkerOverlapDistance
         : this.stepLength);
+    if (this.props.allowOverlap) {
+      // does not set confine if both markers are at same position
+      trueTop = false;
+    }
     var top = trueTop === 0 ? 0 : trueTop || this.props.sliderLength;
     var confined =
       unconfined < bottom ? bottom : unconfined > top ? top : unconfined;
@@ -223,6 +228,10 @@ export default class MultiSlider extends React.Component {
         : this.props.minMarkerOverlapDistance > 0
         ? this.props.minMarkerOverlapDistance
         : this.stepLength);
+    if (this.props.allowOverlap) {
+      // does not set confine if both markers are at same position
+      bottom = 0;
+    }
     var top = this.props.sliderLength;
     var confined =
       unconfined < bottom ? bottom : unconfined > top ? top : unconfined;
@@ -273,17 +282,33 @@ export default class MultiSlider extends React.Component {
       this.props.onToggleOne();
       return;
     }
+    const pastTwo =
+      this.state.pastTwo === 0 ? 0 : this.state.pastTwo || this.state.pastOne;
+    const valueTwo =
+      this.state.valueTwo === 0
+        ? 0
+        : this.state.valueTwo || this.state.valueOne;
+    const positionTwo =
+      this.state.positionTwo === 0
+        ? 0
+        : this.state.positionTwo || this.state.positionOne;
 
     this.setState(
       {
-        pastOne: this.state.positionOne,
+        pastOne: Math.min(this.state.positionOne, pastTwo),
+        pastTwo: Math.max(this.state.positionOne, pastTwo),
         onePressed: !this.state.onePressed,
+        valueOne: Math.min(this.state.valueOne, valueTwo),
+        valueTwo: Math.max(this.state.valueOne, valueTwo),
+        positionOne: Math.min(this.state.positionOne, positionTwo),
+        positionTwo: Math.max(this.state.positionOne, positionTwo),
       },
       () => {
         var change = [this.state.valueOne];
         if (this.state.valueTwo) {
           change.push(this.state.valueTwo);
         }
+        change.sort((a, b) => a - b);
         this.props.onValuesChangeFinish(change);
       },
     );
@@ -298,12 +323,17 @@ export default class MultiSlider extends React.Component {
     this.setState(
       {
         twoPressed: !this.state.twoPressed,
-        pastTwo: this.state.positionTwo,
+        pastOne: Math.min(this.state.positionTwo, this.state.pastOne),
+        pastTwo: Math.max(this.state.positionTwo, this.state.pastOne),
+        valueOne: Math.min(this.state.valueOne, this.state.valueTwo),
+        valueTwo: Math.max(this.state.valueOne, this.state.valueTwo),
+        positionOne: Math.min(this.state.positionOne, this.state.positionTwo),
+        positionTwo: Math.max(this.state.positionOne, this.state.positionTwo),
       },
       () => {
         this.props.onValuesChangeFinish([
-          this.state.valueOne,
-          this.state.valueTwo,
+          Math.min(this.state.valueOne, this.state.valueTwo),
+          Math.max(this.state.valueOne, this.state.valueTwo),
         ]);
       },
     );
@@ -382,11 +412,19 @@ export default class MultiSlider extends React.Component {
     } = this.props;
     const twoMarkers = this.props.values.length == 2; // when allowOverlap, positionTwo could be 0, identified as string '0' and throwing 'RawText 0 needs to be wrapped in <Text>' error
 
-    const trackOneLength = positionOne;
+    const realPositionOne = Math.min(
+      positionOne,
+      positionTwo === 0 ? 0 : positionTwo || positionOne,
+    );
+    const realPositionTwo = Math.max(
+      positionOne,
+      positionTwo === 0 ? 0 : positionTwo || positionOne,
+    );
+    const trackOneLength = realPositionOne;
     const trackOneStyle = twoMarkers
       ? unselectedStyle
       : selectedStyle || styles.selectedTrack;
-    const trackThreeLength = twoMarkers ? sliderLength - positionTwo : 0;
+    const trackThreeLength = twoMarkers ? sliderLength - realPositionTwo : 0;
     const trackThreeStyle = unselectedStyle;
     const trackTwoLength = sliderLength - trackOneLength - trackThreeLength;
     const trackTwoStyle = twoMarkers
@@ -496,7 +534,7 @@ export default class MultiSlider extends React.Component {
               )}
             </View>
           </View>
-          {twoMarkers && positionOne !== this.props.sliderLength && (
+          {twoMarkers && (
             <View
               style={[
                 styles.markerContainer,
